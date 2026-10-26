@@ -52,11 +52,10 @@ services:
       - applogs:/app/logs
     networks:
       - default      # private link to this project's redis
-      - proxy        # Traefik (HTTPS) reaches the app here
-      - dbnet        # reaches the existing Postgres container here
+      - web          # the server's shared network: Traefik (HTTPS) and Postgres are both on it
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+      - "traefik.docker.network=${SHARED_NETWORK}"
       - "traefik.http.routers.nhcdc.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.nhcdc.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
       - "traefik.http.routers.nhcdc.tls=true"
@@ -68,9 +67,6 @@ volumes:
   applogs:
 
 networks:
-  proxy:
+  web:
     external: true
-    name: ${TRAEFIK_NETWORK}
-  dbnet:
-    external: true
-    name: ${PG_NETWORK}
+    name: ${SHARED_NETWORK}
