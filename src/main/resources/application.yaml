@@ -1,0 +1,96 @@
+spring:
+  application:
+    name: nhcdc-chatbot
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:nhcdc_chatbot}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:}
+  jpa:
+    # Off so a failed request cannot leave half-updated entities that a later
+    # transaction in the same request would silently flush to the DB.
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+conversation:
+  session-cache-ttl-minutes: ${SESSION_CACHE_TTL_MINUTES:30}
+  # quiet this long mid-conversation -> one "we haven't heard from you" reminder
+  idle-reminder-minutes: ${CONVERSATION_IDLE_REMINDER_MINUTES:5}
+  # quiet this long mid-conversation -> session ends, parent is told to start fresh
+  idle-timeout-minutes: ${CONVERSATION_IDLE_TIMEOUT_MINUTES:30}
+  idle-check-interval-ms: ${CONVERSATION_IDLE_CHECK_INTERVAL_MS:30000}
+  idle-check-initial-delay-ms: ${CONVERSATION_IDLE_CHECK_INITIAL_DELAY_MS:20000}
+
+cache:
+  # in-memory cache for admin-managed content (centres, services) and bot settings
+  content:
+    enabled: ${CONTENT_CACHE_ENABLED:true}
+    ttl-minutes: ${CONTENT_CACHE_TTL_MINUTES:10}
+    max-entries: ${CONTENT_CACHE_MAX_ENTRIES:1000}
+
+leads:
+  duplicate-window-hours: ${LEAD_DUPLICATE_WINDOW_HOURS:24}
+  sheet-sync:
+    interval-ms: ${LEAD_SHEET_SYNC_INTERVAL_MS:15000}
+    initial-delay-ms: ${LEAD_SHEET_SYNC_INITIAL_DELAY_MS:10000}
+
+whatsapp:
+  # "meta" = Meta Cloud API directly, "turiya" = Turiya gateway (see turiya: below)
+  provider: ${WHATSAPP_PROVIDER:turiya}
+  meta:
+    graph-api-base-url: ${WHATSAPP_GRAPH_API_BASE_URL:https://graph.facebook.com/v21.0}
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    webhook-verify-token: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:}
+    trust-all-certs: ${WHATSAPP_TRUST_ALL_CERTS:true}
+    verify-on-startup: ${WHATSAPP_VERIFY_ON_STARTUP:true}
+
+turiya:
+  base-url: ${TURIYA_BASE_URL:https://app.turiyainfotech.com}
+  api-key: ${TURIYA_API_KEY:}
+  waba-number: ${TURIYA_WABA_NUMBER:}
+  trust-all-certs: ${TURIYA_TRUST_ALL_CERTS:true}
+
+admin:
+  api:
+    username: ${ADMIN_API_USERNAME:admin}
+    password: ${ADMIN_API_PASSWORD:changeme}
+
+google:
+  sheets:
+    spreadsheet-id: ${GOOGLE_SHEETS_SPREADSHEET_ID:}
+    sheet-name: ${GOOGLE_SHEETS_SHEET_NAME:Leads}
+    credentials-path: ${GOOGLE_SHEETS_CREDENTIALS_PATH:secrets/google-sheets-credentials.json}
+
+logging:
+  file:
+    name: ${LOG_FILE_PATH:logs/nhcdc-chatbot.log}
+  pattern:
+    # [user|msg] = masked WhatsApp number | short message id, set per incoming message
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{user:--}|%X{msg:--}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [%X{user:--}|%X{msg:--}] %logger{36} - %msg%n"
+  logback:
+    rollingpolicy:
+      file-name-pattern: logs/nhcdc-chatbot-%d{yyyy-MM-dd}.%i.log
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 500MB
+  level:
+    root: INFO
+    com.nhcdc.chatbot: ${APP_LOG_LEVEL:INFO}

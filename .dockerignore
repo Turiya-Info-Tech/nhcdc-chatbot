@@ -1,0 +1,8 @@
+target/
+logs/
+secrets/
+.idea/
+.claude/
+.git/
+.env
+HELP.md

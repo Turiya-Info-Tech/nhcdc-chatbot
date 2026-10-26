@@ -1,0 +1,76 @@
+# Production compose for a VPS that ALREADY has PostgreSQL.
+# Runs only: app + redis. HTTPS comes from the server's existing Traefik; the
+# database is the existing Postgres container. Neither is started here.
+# Always use:  docker compose -f docker-compose.vps.yml <command>
+
+# Fixed project name: containers/volumes/network are prefixed "nhcdc-chatbot" so they
+# cannot collide with your other Docker projects.
+name: nhcdc-chatbot
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      WHATSAPP_PROVIDER: ${WHATSAPP_PROVIDER:-turiya}
+      TURIYA_BASE_URL: ${TURIYA_BASE_URL:-https://app.turiyainfotech.com}
+      TURIYA_API_KEY: ${TURIYA_API_KEY:-}
+      TURIYA_WABA_NUMBER: ${TURIYA_WABA_NUMBER:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN}
+      WHATSAPP_TRUST_ALL_CERTS: "false"
+      TURIYA_TRUST_ALL_CERTS: "false"
+      ADMIN_API_USERNAME: ${ADMIN_API_USERNAME}
+      ADMIN_API_PASSWORD: ${ADMIN_API_PASSWORD}
+      GOOGLE_SHEETS_SPREADSHEET_ID: ${GOOGLE_SHEETS_SPREADSHEET_ID}
+      GOOGLE_SHEETS_SHEET_NAME: ${GOOGLE_SHEETS_SHEET_NAME:-Leads}
+      GOOGLE_SHEETS_CREDENTIALS_PATH: /app/secrets/google-sheets-credentials.json
+      TZ: Asia/Kolkata
+    volumes:
+      - ./secrets:/app/secrets:ro
+      - applogs:/app/logs
+    networks:
+      - default      # private link to this project's redis
+      - proxy        # Traefik (HTTPS) reaches the app here
+      - dbnet        # reaches the existing Postgres container here
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+      - "traefik.http.routers.nhcdc.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.nhcdc.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.nhcdc.tls=true"
+      - "traefik.http.routers.nhcdc.tls.certresolver=${TRAEFIK_CERT_RESOLVER}"
+      - "traefik.http.services.nhcdc.loadbalancer.server.port=8080"
+
+volumes:
+  redisdata:
+  applogs:
+
+networks:
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK}
+  dbnet:
+    external: true
+    name: ${PG_NETWORK}
